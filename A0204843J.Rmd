@@ -1,0 +1,88 @@
+---
+title: "ST3131"
+output: html_document
+---
+```{r echo=FALSE}
+library(tidyverse)
+library(readxl)
+data <- read.csv("FEV.csv")
+data <- select(data,c("Age","FEV","Hgt","Sex","Smoke"))
+```
+As the ID and Hgt_m are redundant in the dataset, we remove them.
+```{r echo=FALSE}
+summary(data$FEV)
+```
+
+For the variables, Age, Hgt are continuous variables, while Sex and Smoke are indicator variables.
+```{r echo=FALSE}
+ggplot(data,aes(Age,FEV))+geom_point()+geom_smooth(method="lm")
+ggplot(data,aes(Hgt,FEV))+geom_point()+geom_smooth(method="lm")
+```
+From the plots we can See that there is positive correlation between Age and FEV as well as between Hgt and FEV.
+
+To examine the effect of smoking on FEV, we divide the dataset into smokers and non-smokers.
+```{r echo=FALSE}
+smoker <- filter(data,Smoke==1)
+```
+
+As the youngest smoker is 9 years old, we need to subset the non-smoker dataset by Age>=9 years old.
+```{r echo=FALSE}
+nonsmoker <- filter(data,Smoke==0,Age>=9)
+ggplot(smoker,aes(Age,FEV))+geom_point()+geom_smooth(method="lm")+geom_smooth(data=nonsmoker,method="lm",color="red")
+```
+From the plot we can see that the best-fit line of non-smoker is steeper, which means that the coefficient is larger.
+This means that as Age increases, FEV of non-smokers increases more than that of smokers, which shows that there is
+a negative correlation between smoking and FEV.
+
+To examine the effect of different gender on FEV, we divide the dataset into male and female.
+```{r echo=FALSE}
+female <- filter(data,Sex==0)
+male <- filter(data,Sex==1)
+ggplot(male,aes(Age,FEV))+geom_point()+geom_smooth(method="lm")+geom_smooth(data=female,method="lm",color="red")
+```
+From the plot we can see that the best fit line of male is steeper,which means that the coefficient is lager.
+This means that as Age increases, FEV of male increases more than that of female.
+```{r echo=FALSE}
+ggplot(data,aes(FEV))+geom_histogram()
+```
+The response could be a normal distribution.
+```{r echo=FALSE}
+library(corrplot)
+M <- cor(data[,c(1,3,4,5)])
+corrplot(M, method = "color", diag=F,type="upper",
+         title = "Variable Correlation Plot",
+         tl.col='#4477AA',tl.cex=0.7,
+         mar = c(2, 1, 3, 1))
+```
+Age and Hgt, Age and Smoke has relatively strong relationship
+
+```{r echo=FALSE}
+model<- lm(FEV ~ Hgt + Age + Sex + Smoke,data)
+summary(model)
+anova(model)
+plot(model$fitted.values,rstandard(model))
+abline(h=0)
+```
+From the summary table, we can see that Hgt, Age, Sex are significant variables as the p-value is very small. Smoke is not a significant variable. This may not be the case as shown by the earlier plot and by common sense, smoking would affect FEV.
+We can see that the residual is not randomly distributed around 0 which contradicts the assumption of a linear model. Therefore we need a better model. 
+```{r echo=FALSE}
+model_2 <- lm(log(FEV) ~ Hgt+Age+Sex+Smoke,data)
+summary(model_2)
+anova(model_2)
+plot(model_2$fitted.values,rstandard(model_2))
+abline(h=0)
+```
+
+```{r echo=FALSE}
+model_inter <- lm(FEV~1, data = data)
+fwd <- step(model_inter, direction = c("forward"), scope = FEV ~ Hgt+Age+Sex+Smoke)
+summary(fwd)
+bwd <- step(model_2, direction = c("backward"))
+summary(bwd)
+```
+From the result of variable selection, we can keep all 4 variables.
+
+From the summary table of the second model which is the improved model. We can see that the p-value of every variable is significant while Hgt and Age are more significant compared to Sex and Smoke.
+The residual is randomly distributed around 0 therefore it is a good estimation of linear model.
+
+Therefore the final model I selected would be model_2 which is a multiple linear regression model between ln(FEV) and Hgt, Age, Sex and Smoke. We can see that 1 inch increase in height would increase ln(FEV) by 0.042783, 1 year increase in age would increase ln(FEV) by 0.023387. Male has a higher ln(FEV) of 0.029236 compared to Female and non-smoker has a higher ln(FEV) of 0.046015 compared to smokers. The result reflects the relationships of different variables with FEV shown in Part I.
